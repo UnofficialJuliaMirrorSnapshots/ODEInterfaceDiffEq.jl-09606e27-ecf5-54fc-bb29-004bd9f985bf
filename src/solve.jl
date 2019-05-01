@@ -12,7 +12,7 @@ function DiffEqBase.__solve(
 
     tType = eltype(tuptType)
 
-    isstiff = !(typeof(alg) <: Union{dopri5,dop853,odex,ddeabm})
+    isstiff = alg isa ODEInterfaceImplicitAlgorithm
     if verbose
         warned = !isempty(kwargs) && check_keywords(alg, kwargs, warnlist)
         if !(typeof(prob.f) <: DiffEqBase.AbstractParameterizedFunction) && isstiff
@@ -49,15 +49,6 @@ function DiffEqBase.__solve(
 
     sizeu = size(u)
 
-    if !isinplace && typeof(u)<:AbstractArray
-        f! = (t,u,du) -> (du[:] = vec(prob.f(reshape(u,sizeu),prob.p,t)); nothing)
-    elseif !(typeof(u)<:Vector{Float64})
-        f! = (t,u,du) -> (prob.f(reshape(du,sizeu),reshape(u,sizeu),prob.p,t);
-                          du=vec(du); nothing)
-    else
-        f! = (t,u,du) -> prob.f(du,u,prob.p,t)
-    end
-
     o[:RHS_CALLMODE] = ODEInterface.RHS_CALL_INSITU
 
     if save_everystep
@@ -76,9 +67,18 @@ function DiffEqBase.__solve(
                          retcode = :Default)
 
     opts = DEOptions(saveat_internal,save_on,save_everystep,callbacks_internal)
-    integrator = ODEInterfaceIntegrator(u,uprev,tspan[1],tspan[1],opts,
+    integrator = ODEInterfaceIntegrator(u,uprev,tspan[1],tspan[1],prob.p,opts,
                                         false,tdir,sizeu,sol,
                                         (t)->[t],0,alg,0.)
+
+    if !isinplace && typeof(u)<:AbstractArray
+        f! = (t,u,du) -> (du[:] = vec(prob.f(reshape(u,sizeu),integrator.p,t)); nothing)
+    elseif !(typeof(u)<:Vector{Float64})
+        f! = (t,u,du) -> (prob.f(reshape(du,sizeu),reshape(u,sizeu),integrator.p,t);
+                          du=vec(du); nothing)
+    else
+        f! = (t,u,du) -> prob.f(du,u,integrator.p,t)
+    end
 
     outputfcn = OutputFunction(integrator)
     o[:OUTPUTFCN] = outputfcn
@@ -108,6 +108,10 @@ function DiffEqBase.__solve(
     end
     if DiffEqBase.has_jac(prob.f)
         dict[:JACOBIMATRIX] = (t,u,J) -> prob.f.jac(J,u,prob.p,t)
+    end
+
+    if isstiff && alg.jac_lower !== nothing
+        dict[:JACOBIBANDSSTRUCT] = (alg.jac_lower,alg.jac_upper)
     end
 
     # Convert to the strings
