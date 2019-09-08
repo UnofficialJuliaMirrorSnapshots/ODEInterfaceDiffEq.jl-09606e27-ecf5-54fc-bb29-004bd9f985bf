@@ -1,7 +1,7 @@
 name = "ODEInterfaceDiffEq"
 uuid = "09606e27-ecf5-54fc-bb29-004bd9f985bf"
 authors = ["Chris Rackauckas <accounts@chrisrackauckas.com>"]
-version = "v3.3.1"
+version = "v3.4.0"
 
 [deps]
 Compat = "34da2185-b29b-5c13-b0c7-acf172513d20"
@@ -14,6 +14,7 @@ Reexport = "189a3867-3050-52da-a836-e630ba90ab69"
 
 [compat]
 julia = "1"
+DiffEqBase = "6"
 
 [extras]
 DiffEqProblemLibrary = "a077e3f3-b75c-5d7f-a0c6-6bc4c8ec64a9"
